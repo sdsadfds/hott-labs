@@ -1,0 +1,156 @@
+{-# OPTIONS --without-K #-}
+
+open import Prelude
+
+private variable
+  ℓ ℓ' ℓ'' : Level
+
+sym : {A : Type ℓ} {x y : A} → x ≡ y → y ≡ x
+sym refl = refl
+
+J : {A : Type ℓ} {x : A} (P : (y : A) → x ≡ y → Type ℓ') → P x refl → {y : A} (p : x ≡ y) → P y p
+J P Pxr refl = Pxr
+
+sym' : {A : Type ℓ} {x y : A} → x ≡ y → y ≡ x
+sym' {A} {x} {y} z = J (λ y₁ x₂ → y₁ ≡ y) refl z
+{-?-}
+
+trans : {A : Type ℓ} {x y z : A} → x ≡ y → y ≡ z → x ≡ z
+trans refl refl = refl
+
+infixr 30 _∙_
+_∙_ = trans
+
+lUnit : {A : Type ℓ} {x y : A} (p : x ≡ y) → p ≡ refl ∙ p
+lUnit refl = refl
+
+rUnit : {A : Type ℓ} {x y : A} (p : x ≡ y) → p ≡ p ∙ refl
+rUnit refl = refl
+
+lCancel : {A : Type ℓ} {x y : A} (p : x ≡ y) → sym p ∙ p ≡ refl
+lCancel refl = refl
+
+rCancel : {A : Type ℓ} {x y : A} (p : x ≡ y) → p ∙ sym p ≡ refl
+rCancel refl = refl
+
+assoc : {A : Type ℓ} {x y z w : A} (p : x ≡ y) (q : y ≡ z) (r : z ≡ w) → p ∙ (q ∙ r) ≡ (p ∙ q) ∙ r
+assoc refl refl refl = refl
+
+symInvo : {A : Type ℓ} {x y : A} (p : x ≡ y) → p ≡ sym (sym p)
+symInvo refl = refl
+
+cong : {A : Type ℓ} {B : Type ℓ'} (f : A → B) {x y : A} (p : x ≡ y) → f x ≡ f y
+cong f refl = refl
+
+≡× : {A : Type ℓ} {B : Type ℓ'} {x x' : A} {y y' : B} → (x , y) ≡ (x' , y') → (x ≡ x') × (y ≡ y')
+≡× s = (cong fst s , cong snd s)
+
+congConst : {A : Type ℓ} {B : Type ℓ'} {x' : B} {x y : A} (p : x ≡ y) → cong (λ _ → x') p ≡ refl
+congConst refl = refl
+
+congComposite : {A : Type ℓ} {B : Type ℓ'} (a b c : A)  → (p : a ≡ b) → (q : b ≡ c) → (f : A → B) → (cong f (p ∙ q) ≡ cong f p ∙ cong f q)
+congComposite a b c refl refl f = refl
+
+congSym : {A : Type ℓ} {B : Type ℓ'} (a b : A) → (p : a ≡ b) → (f : A → B) → (cong f (sym p) ≡ sym (cong f p))
+congSym a b refl f = refl
+
+congId :  {A : Type ℓ} {B : Type ℓ'} (a b : A) → (p : a ≡ b) → (cong id p ≡ p)
+congId a b refl = refl
+
+cong∘ :  {A : Type ℓ} {B : Type ℓ'} {C : Type ℓ''} (a b : A) → (p : a ≡ b) → (f : A → B) → (g : B → C) → (cong (g ∘ f) p ≡ cong g (cong f p))
+cong∘ a b refl f g = refl
+
+cong₂ :  {A B C : Type ℓ} (a b : A) ( c d : B) → (p : a ≡ b) → (q : c ≡ d) → (f : A → B → C) →(f a c ≡ f b d)
+cong₂ a b c d p q f = cong (λ x → f x c) p ∙ cong (λ x → f b x) q
+
+rotate∙≡ : {A : Type ℓ} {x y y' : A} (p : x ≡ y) (q : y ≡ y') (p' : x ≡ y') → p ∙ q ≡ p' → sym p ∙ p' ≡ q
+rotate∙≡ p q p' α =
+  sym p ∙ p' ≡⟨ cong (λ x → sym p ∙ x) (sym α) ⟩
+  sym p ∙ (p ∙ q) ≡⟨ assoc (sym p) p q ⟩
+ (sym p ∙ p) ∙ q  ≡⟨ cong (λ x → x ∙ q) ( (lCancel p)) ⟩
+  refl ∙ q   ≡⟨ sym (lUnit q) ⟩
+  q ∎
+
+happly : {A : Type ℓ} {B : Type ℓ'} {f g : A → B} → f ≡ g → (x : A) → f x ≡ g x
+happly refl x = refl
+
+subst : {A : Type ℓ} (B : A → Type ℓ') { x y : A} (p : x ≡ y) → B x → B y
+subst B refl bx = bx
+
+subst'' : {A : Type ℓ} (B : A → Type ℓ') {x y : A} (p : x ≡ y) → B x → B y
+subst'' B p bx = J (λ y _ → B y) bx p
+
+true≢false' : ¬ true ≡ false
+true≢false' ()
+
+true≢false : ¬ true ≡ false
+true≢false x = subst (λ {true → ⊤ ; false → ⊥ }) x tt
+
+transport : {A B : Type ℓ} → A ≡ B → A → B
+transport p a = subst (λ x → x) p a
+
+subst' : {A : Type ℓ} (B : A → Type ℓ') {x y : A} (p : x ≡ y) → B x → B y
+subst' B p bx = transport (cong B p) bx
+
+substComposite : {A : Type ℓ} (B : A → Type ℓ) {x y z : A} (p : x ≡ y) (q : y ≡ z) (x' : B x) → subst B (p ∙ q) x' ≡ subst B q (subst B p x')
+substComposite B refl refl x' = refl
+
+substConst : {ℓ ℓ' : Level} {A : Type ℓ} {B : Type ℓ'} {x y : A} (p : x ≡ y) (x' : B) → subst (λ _ → B) p x' ≡ x'
+substConst refl x' = refl
+
+substInPathsL : {A : Type ℓ} {x y y' : A} (p : x ≡ y) (q : y ≡ y') → subst (λ y → x ≡ y) q p ≡ p ∙ q
+substInPathsL refl refl = refl
+
+substInPathsR : {A : Type ℓ} {x x' y : A} (p : x ≡ x') (q : x ≡ y) → subst (λ x → x ≡ y) p q ≡ sym p ∙ q
+substInPathsR refl refl = refl
+
+substInPaths : {A : Type ℓ} {B : Type ℓ'}  {x y : A} (f g : A → B) (p : x ≡ y) (q : f x ≡ g x) → subst (λ x → f x ≡ g x) p q ≡ sym (cong f p) ∙ q ∙ cong g p
+substInPaths f g refl q = lUnit q ∙ cong (λ x₁ → refl ∙ x₁) (rUnit q)
+{-?-}
+
+substInPathsL' : {A : Type ℓ} {B : Type ℓ'}  {x x' : A} (f : A → B) {y : B} (p : x ≡ x') (q : f x ≡ y) → subst (λ x → f x ≡ y) p q ≡ sym (cong f p) ∙ q
+substInPathsL' f {y} p q = substInPaths f (λ x → y) p  q ∙ cong (λ x → sym (cong f p) ∙ q ∙ x) (congConst p) ∙ cong (λ x₁ → sym (cong f p) ∙ x₁) (sym (rUnit q)) 
+
+PathOver : {A : Type ℓ} (B : A → Type ℓ') {x y : A} (p : x ≡ y) (x' : B x) (y' : B y) → Type ℓ'
+PathOver B p x' y' = subst B p x' ≡ y'
+
+×≡ : {A : Type ℓ} {B : Type ℓ'} {x x' : A} {y y' : B} → (p : x ≡ x') (q : y ≡ y') → (x , y) ≡ (x' , y')
+×≡ refl refl = refl
+
+Σ≡ : {A : Type ℓ} {B : A → Type ℓ'} {x x' : A} (p : x ≡ x') {y : B x} {y' : B x'} → PathOver B p y y' → (x , y) ≡ (x' , y')
+Σ≡ refl refl = refl
+
+congP : {A : Type ℓ} (B : A → Type ℓ') (f : (x : A) → B x) {x y : A} (p : x ≡ y) → PathOver B p (f x) (f y)
+congP B f refl = refl
+
+funTypeTranspR : {A : Type ℓ} {B B' : Type ℓ'} (p : B ≡ B') (f : A → B) → subst (λ X → A → X) p f ≡ transport p ∘ f
+funTypeTranspR refl f = refl
+
+funTypeTranspL : {A A' : Type ℓ} {B : Type ℓ'} (p : A ≡ A') (f : A → B) → subst (λ X → X → B) p f ≡ f ∘ transport (sym p)
+funTypeTranspL refl f = refl
+
+funTypeTransp : {A : Type ℓ} (B : A → Type ℓ') (C : A → Type ℓ'') {x y : A} (p : x ≡ y) (f : B x → C x) → PathOver (λ x → B x → C x) p f (subst C p ∘ f ∘ subst B (sym p))
+funTypeTransp B C refl f = refl
+
+UIP : Type₁
+UIP = {A : Type} {x y : A} (p q : x ≡ y) → p ≡ q
+
+URP : Type₁
+URP = {A : Set} {x : A} (p : x ≡ x) → p ≡ refl
+
+K : Type₁
+K = {A : Type} {x : A} (P : (x ≡ x) → Set) → P refl → (p : x ≡ x) → P p
+
+UIP→URP : UIP → URP
+UIP→URP p p₁ = p p₁ refl
+
+URP→UIP : URP → UIP
+URP→UIP urp p q = lUnit p ∙ cong (λ x₁ → x₁ ∙ p) (sym (urp (q ∙ sym p))) ∙ (sym (assoc q (sym p) p) ∙ cong (λ x₁ → q ∙ x₁) (urp (trans (sym p) p))) ∙ sym (rUnit q)
+
+
+URP→K : URP → K
+URP→K urp P Prefl p = subst P (sym (urp p)) Prefl
+{- can not put refl instead of p ? -}
+
+K→URP : K → URP
+K→URP k p = k (λ x → x ≡ refl) refl p

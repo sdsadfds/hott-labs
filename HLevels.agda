@@ -1,0 +1,238 @@
+{-# OPTIONS --without-K #-}
+
+open import Prelude
+open import Path
+open import FunExtPostulate
+
+private variable
+  ℓ ℓ' : Level
+
+isContr : Type ℓ → Type ℓ
+isContr A = Σ A (λ x → (y : A) → x ≡ y)
+
+isContr⊤ : isContr ⊤
+isContr⊤ = tt , λ y → refl
+
+¬isContrBool : ¬ (isContr Bool)
+¬isContrBool (true , f) = true≢false (f false)
+¬isContrBool (false , f) = true≢false (sym (f true))
+
+isContr× : {A : Type ℓ} {B : Type ℓ'} → isContr A → isContr B → isContr (A × B)
+isContr× (a , f) (b , g)  = ((a , b) , λ y → ×≡ (f (fst y)) (g (snd y)))
+
+isContr→isContrPath : {A : Type ℓ} → isContr A → (x y : A) → isContr (x ≡ y)
+{- isContr→isContrPath (a , f) x y = sym (f x) ∙ f y , λ y₁ → (cong (λ x₁ → (sym (f x)) ∙ x₁) (sym {!!} ∙ substInPathsL (f x) y₁)) ∙ assoc (sym (f x)) (f x) y₁ ∙ cong (λ x₁ → x₁ ∙ y₁) (lCancel (f x)) ∙ sym (lUnit y₁) -}
+isContr→isContrPath (a , f) x y = sym (f x) ∙ f y  , λ {refl → lCancel (f x)}
+
+singl : {A : Type ℓ} → A → Type ℓ
+singl {A = A} a = Σ A λ x → a ≡ x
+
+isContrSingl : {A : Type ℓ} (a : A) → isContr (singl a)
+isContrSingl a = (a , refl) , (λ {(a , refl) → refl})
+
+isProp : Type ℓ → Type ℓ
+isProp A = (x y : A) → x ≡ y
+
+isProp⊥ : isProp ⊥
+isProp⊥ () ()
+
+isProp⊤ : isProp ⊤
+isProp⊤ tt tt = refl
+
+¬isPropBool : ¬ (isProp Bool)
+¬isPropBool isPB = true≢false (isPB true false)
+
+isContr→isProp : {A : Type ℓ} → isContr A → isProp A
+isContr→isProp (a , f) = λ x y → (sym (f x)) ∙ f y
+
+isProp→isContr : {A : Type ℓ} → isProp A → A → isContr A
+isProp→isContr isPA b = (b , isPA b)
+
+isContr→isProp' : {A : Type ℓ} → (A → isContr A) → isProp A
+isContr→isProp' f = λ x y → sym ((snd (f x)) x) ∙ (snd (f x)) y
+
+isProp→isContrPath : {A : Type ℓ} → isProp A → (x y : A) → isContr (x ≡ y)
+isProp→isContrPath f x y = isContr→isContrPath (isProp→isContr f y) x  y
+
+isProp' : Type ℓ → Type ℓ
+isProp' A = (x y : A) → isContr (x ≡ y)
+
+isProp'→isProp : (A : Type ℓ) → isProp' A → isProp A
+isProp'→isProp A f = λ x y →  fst (f x y)
+
+isProp→isProp' : {A : Type ℓ} → isProp A → isProp' A
+isProp→isProp' f = λ x y → isContr→isContrPath (isProp→isContr f y) x y
+
+isPropIsContr : {A : Type ℓ} → isProp (isContr A)
+isPropIsContr {A} {A₁}  (a₁ , f₁) (a₂ , f₂) = Σ≡ (f₁ a₂) (funExt λ x → isContr→isProp (isContr→isContrPath (a₂ , f₂) a₂ x) (subst (λ z → (x : A₁) → z ≡ x) (f₁ a₂) f₁ x) (f₂ x))
+
+isPropIsProp : {A : Type ℓ} → isProp (isProp A)
+isPropIsProp f₁ f₂  = funExt (λ x → funExt λ x₁ → isContr→isProp (isProp→isProp' f₂ x x₁) (f₁ x x₁) (f₂ x x₁))
+
+isProp× : {A : Type ℓ} {B : Type ℓ'} → isProp A → isProp B → isProp (A × B)
+isProp× isPA isPB = λ x y → ×≡ (isPA (fst x) (fst y)) (isPB (snd x) (snd y))
+
+isProp⊎ : {A : Type ℓ} {B : Type ℓ'} → isProp A → isProp B → (A → B → ⊥) → isProp (A ⊎ B)
+isProp⊎ isPA isPB f x y with x | y
+... | (inl a₁) | (inl a₂) = cong inl (isPA a₁ a₂)
+... | (inl a₁) | (inr b₁) = ⊥-rec (f a₁ b₁)
+... | (inr b₁) | (inr b₂) = cong inr (isPB b₁ b₂)
+... | (inr b₁) | (inl a₁) = ⊥-rec (f a₁ b₁)
+
+isProp→ : {A : Type ℓ} {B : Type ℓ'} → isProp B → isProp (A → B)
+isProp→ isPB = λ x y → funExt (λ x₁ → isPB (x x₁) (y x₁))
+
+isPropΠ : {A : Type ℓ} (B : A → Type ℓ') → ((x : A) → isProp (B x)) → isProp ((x : A) → B x)
+isPropΠ B f = λ x₁ y → funExt (λ x → f x (x₁ x) (y x))
+
+isProp¬ : {A : Type ℓ} → isProp (¬ A)
+isProp¬ = λ x y → isProp→ (λ x ()) x y
+
+isPropΣ : {A : Type ℓ} (B : A → Type ℓ') → isProp A → ((x : A) → isProp (B x)) → isProp (Σ A B)
+isPropΣ B isPA f (a₁ , b₁) (a₂ , b₂) = Σ≡ (isPA a₁ a₂) (f a₂ (subst B (isPA a₁ a₂) b₁) b₂)
+
+Dec : Type ℓ → Type ℓ
+Dec A = A ⊎ ¬ A
+
+isPropDec : {A : Type ℓ} → isProp A → isProp (Dec A)
+isPropDec isPA = isProp⊎ isPA isProp¬ λ x x₁ → x₁ x
+
+hProp : (ℓ : Level) → Type (ℓ-suc ℓ)
+hProp ℓ = Σ (Type ℓ) isProp
+
+_∧_ : hProp ℓ → hProp ℓ → hProp ℓ
+(a₁ , f₁) ∧ (a₂ , f₂) = a₁ × a₂ , λ x y → ×≡ (f₁ (fst x) (fst y)) (f₂ (snd x) (snd y))
+
+sub : {A : Type ℓ} (P : A → hProp ℓ) → Type ℓ
+sub {A = A} P = Σ A (fst ∘ P)
+
+subInj : {A : Type ℓ} (P : A → hProp ℓ) {x y : sub P} → fst x ≡ fst y → x ≡ y
+subInj P {(a₁ , f₁)} { (a₂ , f₂) } fxfy = Σ≡ fxfy (snd (P a₂) (subst (fst ∘  P) fxfy f₁) f₂)
+
+isSet : Type ℓ → Type ℓ
+isSet A = (x y : A) → isProp (x ≡ y)
+
+isSet⊤ : isSet ⊤
+isSet⊤ tt tt refl refl = refl
+
+isSetBool : isSet Bool
+isSetBool true true refl refl = refl
+isSetBool false false refl refl = refl
+isSetBool true false () ()
+{-
+isSetBool' : isSet Bool
+isSetBool' x y p q = ?
+-}
+{-aux-}
+suc-inj : {m n : ℕ} → suc m ≡ suc n → m ≡ n
+suc-inj {zero} {zero} f = refl
+suc-inj {suc m} {zero} ()
+suc-inj {zero} {suc n} ()
+suc-inj {suc m} {suc n} refl = refl
+
+cong-suc : {m n : ℕ} → m ≡ n → suc m ≡ suc n
+cong-suc refl = refl
+
+cong-suc-suc-inj : {m n : ℕ} → (p : suc m ≡ suc n) → cong-suc (suc-inj p) ≡ p
+cong-suc-suc-inj {zero} {zero} refl = refl
+cong-suc-suc-inj {zero} {suc n} ()
+cong-suc-suc-inj {suc m} {suc n} refl = refl
+{-finish aux-}
+
+isSetℕ : isSet ℕ
+isSetℕ zero zero refl refl = refl
+isSetℕ zero (suc n) () ()
+isSetℕ (suc n) (suc m) q p = let p₁ = suc-inj p in let q₁ = suc-inj q in sym (cong-suc-suc-inj q) ∙ cong cong-suc (isSetℕ n m (suc-inj q) (suc-inj p)) ∙ cong-suc-suc-inj p
+
+isProp→isSet : {A : Type ℓ} → isProp A → isSet A
+isProp→isSet isPA x y = isContr→isProp (isContr→isContrPath (y , isPA y) x y)
+
+{-aux-}
+≡×≡ :  {A : Type ℓ} {B : Type ℓ'} (x y : A × B) → (p : x ≡ y) → (×≡ (fst (≡× p)) (snd (≡× p)) ≡ p)  
+≡×≡ (x₁ , x₂) (y₁ , y₂) p = J (λ y₁ eq → ×≡ (fst (≡× eq)) (snd (≡× eq)) ≡ eq) refl p
+
+isSet× : {A : Type ℓ} {B : Type ℓ'} → isSet A → isSet B → isSet (A × B)
+isSet× isSA isSB (a₁ , b₁) (a₂ , b₂) x y =
+  let
+    eq1 = isSA a₁ a₂ (cong fst x) (cong fst y)
+    eq2 = isSB b₁ b₂ (cong snd x) (cong snd y)
+    eq : (≡× x) ≡ (≡× y)
+    eq = ×≡ eq1 eq2
+  in 
+  (sym (≡×≡ (a₁ , b₁) (a₂ , b₂) x) ∙ cong (λ x₁ → ×≡ (fst x₁) (snd x₁) ) eq ∙ ≡×≡ (a₁ , b₁) (a₂ , b₂) y)
+
+
+isPropIsSet : {A : Type ℓ} → isProp (isSet A)
+isPropIsSet isSA1 isSA2 = funExt λ x → funExt λ x₁ → isPropIsProp (isSA1 x x₁) (isSA2 x x₁)
+
+Stable : Type ℓ → Type ℓ
+Stable A = ¬ (¬ A) → A
+
+Dec→Stable : {A : Type ℓ} → Dec A → Stable A
+Dec→Stable (inl a) f = a
+Dec→Stable (inr na) g = ⊥-rec (g na)
+
+Separated : Type ℓ → Type ℓ
+Separated A = (x y : A) → Stable (x ≡ y)
+
+Discrete : Type ℓ → Type ℓ
+Discrete A = (x y : A) → Dec (x ≡ y)
+
+Discrete→Separated : {A : Type ℓ} → Discrete A → Separated A
+Discrete→Separated DisA x y g with DisA x y
+... | inl a = a
+... | inr na = ⊥-rec (g na)
+
+{-aux-}
+isProp¬¬ : (A : Type ℓ) → isProp(¬ ¬ A)
+isProp¬¬ A = isProp→ isProp⊥
+{-finish aux-}
+
+
+Separated→isSet : {A : Type ℓ} → Separated A → isSet A
+Separated→isSet SA x y a b =
+  let
+    bar_a = λ k → k a
+    bar_b = λ k → k b
+    bar_bar_a = SA x y bar_a
+    bar_equal = isProp¬¬ (x ≡ y) bar_a bar_b
+    tilt_equal = cong (SA x y) bar_equal
+    eq_fun = λ (eq : x ≡ y) → J (λ x₁ eq₁ → sym eq₁ ≡ (SA x₁ y λ k → k (sym eq₁)) ∙ sym (SA y y λ k → k refl)) (sym (rCancel (SA y y (λ k → k refl)))) (sym eq)
+  in
+  symInvo a ∙ eq_fun a ∙ cong (λ x₁ →  SA x y (λ k → k x₁) ∙ sym (SA y y (λ k → k refl))) (sym (symInvo a)) ∙ cong (λ x₁ → x₁ ∙ sym (SA y y (λ k → k refl))) tilt_equal ∙ cong (λ x₁ →  SA x y (λ k → k x₁) ∙ sym (SA y y (λ k → k refl))) (symInvo b) ∙ sym (eq_fun b) ∙ sym (symInvo b)
+
+Discrete→isSet : {A : Type ℓ} → Discrete A → isSet A
+Discrete→isSet DA = Separated→isSet (Discrete→Separated DA)
+
+Discreteℕ : Discrete ℕ
+Discreteℕ zero zero = inl refl
+Discreteℕ zero (suc n) = inr λ ()
+Discreteℕ (suc n) zero = inr λ ()
+Discreteℕ (suc n) (suc m) with Discreteℕ n m
+... | inl a = inl (cong suc a)
+... | inr b = inr λ x → b (suc-inj x)
+
+isSetℕ' : isSet ℕ
+isSetℕ' = Discrete→isSet Discreteℕ
+
+isGroupoid : Type ℓ → Type ℓ
+isGroupoid A = (x y : A) → isSet (x ≡ y)
+
+isSet→isGroupoid : {A : Type ℓ} → isSet A → isGroupoid A
+isSet→isGroupoid isSA x y a b = isContr→isProp (isProp→isContrPath (isSA x y) a b)
+
+HLevel : Type
+HLevel = ℕ
+
+isOfHLevel : HLevel → Type ℓ → Type ℓ
+isOfHLevel zero A = isContr A
+isOfHLevel (suc n) A = (x y : A) → isOfHLevel n (x ≡ y)
+
+isOfHLevelSuc : {A : Type ℓ} (n : HLevel) → isOfHLevel n A → isOfHLevel (suc n) A
+isOfHLevelSuc 0 isHn x y = isContr→isContrPath isHn x y
+isOfHLevelSuc (suc m) isHn x y = λ x₁ y₁ → isOfHLevelSuc m (isHn x y) x₁ y₁
+
+isPropIsOfHLevel : {A : Type ℓ} (n : HLevel) → isProp (isOfHLevel n A)
+isPropIsOfHLevel zero x y = isPropIsContr x y
+isPropIsOfHLevel (suc m) x y = funExt (λ x₁ → funExt (λ x₂ → isPropIsOfHLevel m (x x₁ x₂) (y x₁ x₂)))
+
